@@ -450,7 +450,7 @@ public:
 
     GeneratorParamImpl(const std::string &name, const T &value) : GeneratorParamBase(name), value_(value) {}
 
-    T value() const { check_value_readable(); return value_; }
+    T value() const { this->check_value_readable(); return value_; }
 
     operator T() const { return this->value(); }
 
@@ -1290,6 +1290,8 @@ protected:
     template<typename ElemType>
     const std::vector<ElemType> &get_values() const;
 
+    void check_gio_access() const;
+
     virtual void check_value_writable() const = 0;
 
     virtual const char *input_or_output() const = 0;
@@ -1389,26 +1391,31 @@ protected:
 public:
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     size_t size() const {
+        this->check_gio_access();
         return get_values<ValueType>().size();
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     const ValueType &operator[](size_t i) const {
+        this->check_gio_access();
         return get_values<ValueType>()[i];
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     const ValueType &at(size_t i) const {
+        this->check_gio_access();
         return get_values<ValueType>().at(i);
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     typename std::vector<ValueType>::const_iterator begin() const {
+        this->check_gio_access();
         return get_values<ValueType>().begin();
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     typename std::vector<ValueType>::const_iterator end() const {
+        this->check_gio_access();
         return get_values<ValueType>().end();
     }
 };
@@ -1432,6 +1439,7 @@ public:
     template<typename ...Args>                                              \
     inline auto Method(Args&&... args) const ->                             \
         typename std::remove_reference<decltype(std::declval<Class>().Method(std::forward<Args>(args)...))>::type { \
+        this->check_gio_access(); \
         return this->template as<Class>().Method(std::forward<Args>(args)...);          \
     }
 
@@ -1481,10 +1489,12 @@ public:
 
     template <typename... Args>
     Expr operator()(Args&&... args) const {
+        this->check_gio_access();
         return Func(*this)(std::forward<Args>(args)...);
     }
 
     Expr operator()(std::vector<Expr> args) const {
+        this->check_gio_access();
         return Func(*this)(args);
     }
 
@@ -1495,47 +1505,57 @@ public:
     }
 
     operator Func() const {
+        this->check_gio_access();
         return this->funcs().at(0);
     }
 
     operator ExternFuncArgument() const {
+        this->check_gio_access();
         return ExternFuncArgument(this->parameters_.at(0));
     }
 
     GeneratorInput_Buffer<T> &estimate(Var var, Expr min, Expr extent) {
+        this->check_gio_access();
         this->estimate_impl(var, min, extent);
         return *this;
     }
 
     Func in() {
+        this->check_gio_access();
         return Func(*this).in();
     }
 
     Func in(Func other) {
+        this->check_gio_access();
         return Func(*this).in(other);
     }
 
     Func in(const std::vector<Func> &others) {
+        this->check_gio_access();
         return Func(*this).in(others);
     }
 
     operator ImageParam() const {
+        this->check_gio_access();
         user_assert(!this->is_array()) << "Cannot convert an Input<Buffer<>[]> to an ImageParam; use an explicit subscript operator: " << this->name();
         return ImageParam(this->parameters_.at(0), Func(*this));
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     size_t size() const {
+        this->check_gio_access();
         return this->parameters_.size();
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     ImageParam operator[](size_t i) const {
+        this->check_gio_access();
         return ImageParam(this->parameters_.at(i), this->funcs().at(i));
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     ImageParam at(size_t i) const {
+        this->check_gio_access();
         return ImageParam(this->parameters_.at(i), this->funcs().at(i));
     }
 
@@ -1629,35 +1649,43 @@ public:
 
     template <typename... Args>
     Expr operator()(Args&&... args) const {
+        this->check_gio_access();
         return this->funcs().at(0)(std::forward<Args>(args)...);
     }
 
     Expr operator()(std::vector<Expr> args) const {
+        this->check_gio_access();
         return this->funcs().at(0)(args);
     }
 
     operator Func() const {
+        this->check_gio_access();
         return this->funcs().at(0);
     }
 
     operator ExternFuncArgument() const {
+        this->check_gio_access();
         return ExternFuncArgument(this->parameters_.at(0));
     }
 
     GeneratorInput_Func<T> &estimate(Var var, Expr min, Expr extent) {
+        this->check_gio_access();
         this->estimate_impl(var, min, extent);
         return *this;
     }
 
     Func in() {
+        this->check_gio_access();
         return Func(*this).in();
     }
 
     Func in(Func other) {
+        this->check_gio_access();
         return Func(*this).in(other);
     }
 
     Func in(const std::vector<Func> &others) {
+        this->check_gio_access();
         return Func(*this).in(others);
     }
 
@@ -1740,16 +1768,19 @@ public:
     /** You can use this Input as an expression in a halide
      * function definition */
     operator Expr() const {
+        this->check_gio_access();
         return this->exprs().at(0);
     }
 
     /** Using an Input as the argument to an external stage treats it
      * as an Expr */
     operator ExternFuncArgument() const {
+        this->check_gio_access();
         return ExternFuncArgument(this->exprs().at(0));
     }
 
     void set_estimate(const T &value) {
+        this->check_gio_access();
         for (Parameter &p : this->parameters_) {
             p.set_estimate(Expr(value));
         }
@@ -2049,46 +2080,55 @@ protected:
 public:
     template <typename... Args, typename T2 = T, typename std::enable_if<!std::is_array<T2>::value>::type * = nullptr>
     FuncRef operator()(Args&&... args) const {
+        this->check_gio_access();
         return get_values<ValueType>().at(0)(std::forward<Args>(args)...);
     }
 
     template <typename ExprOrVar, typename T2 = T, typename std::enable_if<!std::is_array<T2>::value>::type * = nullptr>
     FuncRef operator()(std::vector<ExprOrVar> args) const {
+        this->check_gio_access();
         return get_values<ValueType>().at(0)(args);
     }
 
     template <typename T2 = T, typename std::enable_if<!std::is_array<T2>::value>::type * = nullptr>
     operator Func() const {
+        this->check_gio_access();
         return get_values<ValueType>().at(0);
     }
 
     template <typename T2 = T, typename std::enable_if<!std::is_array<T2>::value>::type * = nullptr>
     operator Stage() const {
+        this->check_gio_access();
         return get_values<ValueType>().at(0);
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     size_t size() const {
+        this->check_gio_access();
         return get_values<ValueType>().size();
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     const ValueType &operator[](size_t i) const {
+        this->check_gio_access();
         return get_values<ValueType>()[i];
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     const ValueType &at(size_t i) const {
+        this->check_gio_access();
         return get_values<ValueType>().at(i);
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     typename std::vector<ValueType>::const_iterator begin() const {
+        this->check_gio_access();
         return get_values<ValueType>().begin();
     }
 
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     typename std::vector<ValueType>::const_iterator end() const {
+        this->check_gio_access();
         return get_values<ValueType>().end();
     }
 
@@ -2097,6 +2137,7 @@ public:
         std::is_array<T2>::value && std::rank<T2>::value == 1 && std::extent<T2, 0>::value == 0
     >::type * = nullptr>
     void resize(size_t size) {
+        this->check_gio_access();
         GeneratorOutputBase::resize(size);
     }
 };
@@ -2182,6 +2223,7 @@ public:
     // not considered const. We should consider how this really ought to work.
     template<typename T2>
     HALIDE_NO_USER_CODE_INLINE GeneratorOutput_Buffer<T> &operator=(Buffer<T2> &buffer) {
+        this->check_gio_access();
         this->check_value_writable();
 
         user_assert(T::can_convert_from(buffer))
@@ -2209,6 +2251,7 @@ public:
     // of the enclosing Generator.
     template<typename T2>
     GeneratorOutput_Buffer<T> &operator=(const StubOutputBuffer<T2> &stub_output_buffer) {
+        this->check_gio_access();
         assign_from_func(stub_output_buffer.f);
         return *this;
     }
@@ -2217,11 +2260,13 @@ public:
     // this allows us to use helper functions that return a plain Func
     // to simply set the output(s) without needing a wrapper Func.
     GeneratorOutput_Buffer<T> &operator=(const Func &f) {
+        this->check_gio_access();
         assign_from_func(f);
         return *this;
     }
 
     operator OutputImageParam() const {
+        this->check_gio_access();
         user_assert(!this->is_array()) << "Cannot convert an Output<Buffer<>[]> to an ImageParam; use an explicit subscript operator: " << this->name();
         internal_assert(this->exprs_.empty() && this->funcs_.size() == 1);
         return this->funcs_.at(0).output_buffer();
@@ -2275,6 +2320,7 @@ public:
     // Allow Output<Func> = Func
     template <typename T2 = T, typename std::enable_if<!std::is_array<T2>::value>::type * = nullptr>
     GeneratorOutput_Func<T> &operator=(const Func &f) {
+        this->check_gio_access();
         this->check_value_writable();
 
         // Don't bother verifying the Func type, dimensions, etc., here:
@@ -2286,6 +2332,7 @@ public:
     // Allow Output<Func[]> = Func
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     Func &operator[](size_t i) {
+        this->check_gio_access();
         this->check_value_writable();
         return get_assignable_func_ref(i);
     }
@@ -2293,10 +2340,12 @@ public:
     // Allow Func = Output<Func[]>
     template <typename T2 = T, typename std::enable_if<std::is_array<T2>::value>::type * = nullptr>
     const Func &operator[](size_t i) const {
+        this->check_gio_access();
         return Super::operator[](i);
     }
 
     GeneratorOutput_Func<T> &estimate(Var var, Expr min, Expr extent) {
+        this->check_gio_access();
         internal_assert(this->exprs_.empty() && this->funcs_.size() > 0);
         for (Func &f : this->funcs_) {
             f.estimate(var, min, extent);
@@ -2756,6 +2805,7 @@ protected:
     void init_from_context(const Halide::GeneratorContext &context) override;
 
     virtual Pipeline build_pipeline() = 0;
+    virtual void call_configure() = 0;
     virtual void call_generate() = 0;
     virtual void call_schedule() = 0;
 
@@ -2763,6 +2813,8 @@ protected:
 
     void pre_build();
     void post_build();
+    void pre_configure();
+    void post_configure();
     void pre_generate();
     void post_generate();
     void pre_schedule();
@@ -2780,6 +2832,11 @@ protected:
     enum Phase {
         // Generator has just come into being.
         Created,
+
+        // Generator has had its configure() method called. (For Generators without
+        // a configure() method, this phase will be skipped and will advance
+        // directly to InputsSet.)
+        ConfigureCalled,
 
         // All Input<>/Param<> fields have been set. (Applicable only in JIT mode;
         // in AOT mode, this can be skipped, going Created->GenerateCalled directly.)
@@ -2801,6 +2858,7 @@ protected:
 private:
     friend void ::Halide::Internal::generator_test();
     friend class GeneratorParamBase;
+    friend class GIOBase;
     friend class GeneratorInputBase;
     friend class GeneratorOutputBase;
     friend class GeneratorStub;
@@ -3039,35 +3097,6 @@ private:
 template <class T>
 class Generator : public Internal::GeneratorBase {
 protected:
-
-    // TODO: This causes problems for existing code that declares helper
-    // methods (that use ImageParam, etc as arguments) outside the class body,
-    // as there is an ambiguity between Halide::ImageParam and Generator<T>::ImageParam.
-    //
-    // Consider re-enabling this at some point in the future when the likelihood of
-    // collision with existing code is much smaller.
-    //
-    // // Add wrapper types here that exists just to allow us to tag
-    // // ImageParam/Param-used-inside-Generator with HALIDE_ATTRIBUTE_DEPRECATED.
-    // // (This won't catch code that uses "Halide::Param" or "Halide::ImageParam"
-    // // but those are somewhat uncommon cases.)
-
-    // template<typename T2>
-    // class Param : public ::Halide::Param<T2> {
-    // public:
-    //     template <typename... Args>
-    //     HALIDE_ATTRIBUTE_DEPRECATED("Using Param<> in Generators is deprecated; please use Input<> instead.")
-    //     explicit Param(const Args &...args) : ::Halide::Param<T2>(args...) { }
-    // };
-
-    // class ImageParam : public ::Halide::ImageParam {
-    // public:
-    //     template <typename... Args>
-    //     HALIDE_ATTRIBUTE_DEPRECATED("Using ImageParam<> in Generators is deprecated; please use Input<Buffer<>> instead.")
-    //     explicit ImageParam(const Args &...args) : ::Halide::ImageParam(args...) { }
-    // };
-
-protected:
     Generator() :
         Internal::GeneratorBase(sizeof(T),
                                 Internal::Introspection::get_introspection_helper<T>()) {}
@@ -3097,6 +3126,7 @@ public:
     void apply(const Args &...args) {
         static_assert(has_generate_method<T>::value && has_schedule_method<T>::value,
             "apply() is not supported for old-style Generators.");
+        call_configure();
         set_inputs(args...);
         call_generate();
         call_schedule();
@@ -3108,6 +3138,12 @@ private:
     // so we use a little SFINAE to detect if there are method-shaped members.
     template<typename>
     struct type_sink { typedef void type; };
+
+    template<typename T2, typename = void>
+    struct has_configure_method : std::false_type {};
+
+    template<typename T2>
+    struct has_configure_method<T2, typename type_sink<decltype(std::declval<T2>().configure())>::type> : std::true_type {};
 
     template<typename T2, typename = void>
     struct has_generate_method : std::false_type {};
@@ -3134,6 +3170,7 @@ private:
     // for treating a 0 as an int rather than a double to choose one
     // of them.
     Pipeline build_pipeline_impl(double) {
+        static_assert(!has_configure_method<T2>::value, "The configure() method is ignored if you define a build() method; use generate() instead.");
         static_assert(!has_schedule_method<T2>::value, "The schedule() method is ignored if you define a build() method; use generate() instead.");
         pre_build();
         Pipeline p = ((T *)this)->build();
@@ -3144,13 +3181,45 @@ private:
     template <typename T2 = T,
               typename = decltype(std::declval<T2>().generate())>
     Pipeline build_pipeline_impl(int) {
+        // No: configure() must be called prior to this
+        // (and in fact, prior to calling set_inputs).
+        //
+        // ((T *)this)->call_configure_impl(0, 0);
+
         ((T *)this)->call_generate_impl(0);
         ((T *)this)->call_schedule_impl(0, 0);
         return get_pipeline();
     }
 
+    // Implementations for call_configure_impl(), specialized on whether we
+    // have build() or configure()/generate()/schedule() methods.
+
+    void call_configure_impl(double, double) {
+        // Called as a side effect for build()-method Generators; quietly do nothing.
+    }
+
+    template<typename T2 = T,
+             typename = decltype(std::declval<T2>().generate())>
+    void call_configure_impl(double, int) {
+        // Generator has a generate() method but no configure() method. This is ok. Just advance the phase.
+        pre_configure();
+        static_assert(!has_configure_method<T2>::value, "Did not expect a configure method here.");
+        post_configure();
+    }
+
+    template<typename T2 = T,
+             typename = decltype(std::declval<T2>().generate()),
+             typename = decltype(std::declval<T2>().configure())>
+    void call_configure_impl(int, int) {
+        T *t = (T*)this;
+        static_assert(std::is_void<decltype(t->configure())>::value, "configure() must return void");
+        pre_configure();
+        t->configure();
+        post_configure();
+    }
+
     // Implementations for call_generate_impl(), specialized on whether we
-    // have build() or generate()/schedule() methods.
+    // have build() or configure()/generate()/schedule() methods.
 
     void call_generate_impl(double) {
         user_error << "Unimplemented";
@@ -3167,7 +3236,7 @@ private:
     }
 
     // Implementations for call_schedule_impl(), specialized on whether we
-    // have build() or generate()/schedule() methods.
+    // have build() or configure()generate()/schedule() methods.
 
     void call_schedule_impl(double, double) {
         user_error << "Unimplemented";
@@ -3195,6 +3264,10 @@ private:
 protected:
     Pipeline build_pipeline() override {
         return this->build_pipeline_impl(0);
+    }
+
+    void call_configure() override {
+        this->call_configure_impl(0, 0);
     }
 
     void call_generate() override {

@@ -700,6 +700,7 @@ GeneratorStub::GeneratorStub(const GeneratorContext &context,
 std::vector<std::vector<Func>> GeneratorStub::generate(const GeneratorParamsMap &generator_params,
                                                        const std::vector<std::vector<Internal::StubInput>> &inputs) {
     generator->set_generator_param_values(generator_params);
+    generator->call_configure();
     generator->set_inputs_vector(inputs);
     Pipeline p = generator->build_pipeline();
 
@@ -993,7 +994,8 @@ void GeneratorParamBase::check_value_readable() const {
     if (name == "target") return;
     if (name == "auto_schedule") return;
     if (name == "machine_params") return;
-    user_assert(generator && generator->phase >= GeneratorBase::GenerateCalled)  << "The GeneratorParam \"" << name << "\" cannot be read before build() or generate() is called.\n";
+    user_assert(generator && generator->phase >= GeneratorBase::ConfigureCalled)
+        << "The GeneratorParam \"" << name << "\" cannot be read before build() or configure()/generate() is called.\n";
 }
 
 void GeneratorParamBase::check_value_writable() const {
@@ -1277,12 +1279,15 @@ void GeneratorBase::advance_phase(Phase new_phase) {
     case Created:
         internal_error << "Impossible";
         break;
+    case ConfigureCalled:
+        internal_assert(phase == Created) << "pase is "<<phase;
+        break;
     case InputsSet:
-        internal_assert(phase == Created);
+        internal_assert(phase == Created || phase == ConfigureCalled);
         break;
     case GenerateCalled:
-        // It's OK to advance from Created to GenerateCalled, skipping InputsSet.
-        internal_assert(phase == Created || phase == InputsSet);
+        // It's OK to advance directly to GenerateCalled.
+        internal_assert(phase == Created || phase == ConfigureCalled || phase == InputsSet);
         break;
     case ScheduleCalled:
         internal_assert(phase == GenerateCalled);
@@ -1291,6 +1296,13 @@ void GeneratorBase::advance_phase(Phase new_phase) {
     phase = new_phase;
 }
 
+
+void GeneratorBase::pre_configure() {
+    advance_phase(ConfigureCalled);
+}
+
+void GeneratorBase::post_configure() {
+}
 
 void GeneratorBase::pre_generate() {
     advance_phase(GenerateCalled);
@@ -1378,6 +1390,7 @@ Pipeline GeneratorBase::get_pipeline() {
 Module GeneratorBase::build_module(const std::string &function_name,
                                    const LinkageType linkage_type) {
     std::string auto_schedule_result;
+    call_configure();
     Pipeline pipeline = build_pipeline();
     if (get_auto_schedule()) {
         auto_schedule_result = pipeline.auto_schedule(get_target(), get_machine_params());
@@ -1591,6 +1604,13 @@ void GIOBase::check_matching_types(const std::vector<Type> &t) const {
     }
 }
 
+void GIOBase::check_gio_access() const {
+    // // Allow reading when no Generator is set, to avoid having to special-case ctor initing code
+    // if (!generator) return;
+    user_assert(generator && generator->phase > GeneratorBase::InputsSet)
+        << "The " << input_or_output() << " \"" << name() << "\" cannot be examined before build() or generate() is called.\n";
+}
+
 // If our dims are defined, ensure it matches the one passed in, asserting if not.
 // If our dims are not defined, just set to the one passed in.
 void GIOBase::check_matching_dims(int d) const {
@@ -1629,7 +1649,8 @@ GeneratorInputBase::~GeneratorInputBase() {
 }
 
 void GeneratorInputBase::check_value_writable() const {
-    user_assert(generator && generator->phase == GeneratorBase::InputsSet)  << "The Input " << name() << " cannot be set at this point.\n";
+    user_assert(generator && generator->phase == GeneratorBase::InputsSet)
+        << "The Input " << name() << " cannot be set at this point.\n";
 }
 
 void GeneratorInputBase::set_def_min_max() {
@@ -1755,7 +1776,8 @@ GeneratorOutputBase::~GeneratorOutputBase() {
 }
 
 void GeneratorOutputBase::check_value_writable() const {
-    user_assert(generator && generator->phase == GeneratorBase::GenerateCalled)  << "The Output " << name() << " can only be set inside generate().\n";
+    user_assert(generator && generator->phase == GeneratorBase::GenerateCalled)
+        << "The Output " << name() << " can only be set inside generate().\n";
 }
 
 void GeneratorOutputBase::init_internals() {
